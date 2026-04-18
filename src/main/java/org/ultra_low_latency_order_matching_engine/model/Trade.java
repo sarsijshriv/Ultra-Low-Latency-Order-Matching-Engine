@@ -1,6 +1,5 @@
 package org.ultra_low_latency_order_matching_engine.model;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.ToString;
 

@@ -1,8 +1,8 @@
 package org.ultra_low_latency_order_matching_engine.model;
 
+import lombok.Getter;
 import lombok.ToString;
 import org.ultra_low_latency_order_matching_engine.enums.OrderType;
-import lombok.Getter;
 
 @Getter
 @ToString(exclude = "createdTime")
@@ -25,14 +25,14 @@ public class Order {
         this.createdTime = System.nanoTime();
     }
 
-    public void reduceQuantity(long qty){
-        if(qty<=0 || qty > this.quantity)
+    public void reduceQuantity(long qty) {
+        if (qty <= 0 || qty > this.quantity)
             throw new IllegalArgumentException("Invalid quantity reduction");
         this.quantity -= qty;
     }
 
-    public boolean isFilled(){
-        return quantity==0;
+    public boolean isFilled() {
+        return quantity == 0;
     }
 
 }

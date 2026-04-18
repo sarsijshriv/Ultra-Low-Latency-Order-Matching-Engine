@@ -17,7 +17,7 @@ public class OrderBook {
     @Getter
     private final List<Trade> trades;
 
-    public OrderBook(){
+    public OrderBook() {
         buyOrders = new PriorityQueue<>(
                 Comparator.comparingLong(Order::getPrice).reversed().thenComparing(Order::getId)
         );
@@ -28,18 +28,18 @@ public class OrderBook {
         trades = new ArrayList<>();
     }
 
-    public void addOrder(Order order){
-        if(order.getOrderType() == OrderType.BUY){
+    public void addOrder(Order order) {
+        if (order.getOrderType() == OrderType.BUY) {
             buyOrders.add(order);
-        } else{
+        } else {
             sellOrders.add(order);
         }
         matchOrders();
     }
 
     private void matchOrders() {
-        while(!buyOrders.isEmpty() && !sellOrders.isEmpty() &&
-                sellOrders.peek().getPrice() <= buyOrders.peek().getPrice()){
+        while (!buyOrders.isEmpty() && !sellOrders.isEmpty() &&
+                sellOrders.peek().getPrice() <= buyOrders.peek().getPrice()) {
             Order buyOrder = buyOrders.peek();
             Order sellOrder = sellOrders.peek();
 
@@ -47,15 +47,16 @@ public class OrderBook {
 
             long tradePrice = sellOrder.getPrice();
 
-            Trade trade = new Trade(buyOrder.getId(),sellOrder.getId(), tradePrice, tradeQty, System.nanoTime());
+            Trade trade = new Trade(buyOrder.getId(), sellOrder.getId(), tradePrice, tradeQty, System.nanoTime());
 
             trades.add(trade);
+
             buyOrder.reduceQuantity(tradeQty);
             sellOrder.reduceQuantity(tradeQty);
-            if(buyOrder.isFilled()){
+            if (buyOrder.isFilled()) {
                 buyOrders.poll();
             }
-            if(sellOrder.isFilled()){
+            if (sellOrder.isFilled()) {
                 sellOrders.poll();
             }
         }
