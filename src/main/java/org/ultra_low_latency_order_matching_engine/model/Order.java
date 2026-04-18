@@ -13,7 +13,7 @@ public class Order {
     private final OrderType orderType;
     private final long createdTime;
 
-    Order(long id, long price, long quantity, OrderType orderType) {
+    public Order(long id, long price, long quantity, OrderType orderType) {
         if (price <= 0)
             throw new IllegalArgumentException("Price just be positive");
         if (quantity <= 0)
