@@ -40,9 +40,9 @@ Order Book (Buy Heap + Sell Heap)
 
 Rules:
 
--   Buy Orders → Highest price first\
--   Sell Orders → Lowest price first\
--   Same price → Earlier order first\
+-   Buy Orders → Highest price first
+-   Sell Orders → Lowest price first
+-   Same price → Earlier order first
 -   Match when Buy Price ≥ Sell Price
 
 Data structures:
