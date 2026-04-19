@@ -2,8 +2,6 @@ package org.ultra_low_latency_order_matching_engine.services;
 
 import org.ultra_low_latency_order_matching_engine.model.Order;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 
 public class MatchingEngine implements Runnable {
@@ -11,7 +9,9 @@ public class MatchingEngine implements Runnable {
     private final ArrayBlockingQueue<Order> queue;
     private final OrderBook orderBook;
     private static boolean running = true;
-    private final List<Long> processingLatencies = new ArrayList<>();
+    private static final int MAX_TRADES = 20_000_000;
+    private final long[] processingLatencies = new long[(int) MAX_TRADES];
+    private static int processingIndex = 0;
 
     public MatchingEngine(ArrayBlockingQueue<Order> queue, OrderBook orderBook) {
         this.queue = queue;
@@ -28,8 +28,7 @@ public class MatchingEngine implements Runnable {
                 long processingStart = System.nanoTime();
                 orderBook.addOrder(order);
                 long processingEnd = System.nanoTime();
-                processingLatencies.add(processingEnd - processingStart);
-
+                    processingLatencies[processingIndex++] = processingEnd - processingStart;
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -40,8 +39,12 @@ public class MatchingEngine implements Runnable {
         running = false;
     }
 
-    public List<Long> getProcessingLatencies() {
+    public long[] getProcessingLatencies() {
         return processingLatencies;
+    }
+
+    public long getTotalProcessedCount() {
+        return processingIndex;
     }
 
 }

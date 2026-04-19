@@ -1,323 +1,208 @@
+# 🚀 Ultra-Low Latency Order Matching Engine (Java)
 
-# Ultra-Low Latency Order Matching Engine (Java)
+A high-performance, multi-threaded **price-time priority order matching
+engine** built from scratch in Java and optimized through systematic
+performance engineering.
 
-A high-performance, multi-threaded order matching engine built in Java to simulate real-world exchange-style order processing pipelines.
+------------------------------------------------------------------------
 
-This project focuses on **throughput, latency measurement, and concurrency design**, not just correctness.
+# 📌 Project Overview
 
----
+Core pipeline:
 
-# 🚀 Performance Snapshot
+Multiple Producers → ArrayBlockingQueue → MatchingEngine → OrderBook →
+Trade Execution
 
-**Test Duration:** 10 seconds  
-**Producer Mode:** `Thread.sleep(0)`  
-**Architecture:** Multi-producer → Single-consumer
+Design goals:
 
-## Throughput
+-   Ultra-low latency execution
+-   High throughput matching
+-   Deterministic price-time priority
+-   Minimal memory allocation
+-   Measurable performance tuning
 
-```
-Total Trades:        4,184,168
-Throughput:          417,953 trades/sec
-```
+------------------------------------------------------------------------
 
-## End-to-End Latency
+# ⚙️ System Architecture
 
-```
-P50:   1,509 µs
-P95:   2,276 µs
-P99:  23,876 µs
-```
+Producer #1\
+Producer #2\
+↓\
+ArrayBlockingQueue (Capacity: 1000)\
+↓\
+Matching Engine (Single Consumer)\
+↓\
+Order Book (Buy Heap + Sell Heap)
 
-## Processing Latency
+------------------------------------------------------------------------
 
-```
-P50:     500 µs
-P95:   2,900 µs
-P99:   4,400 µs
-```
+# 🧠 Matching Model
 
-**Key Observation**
+Rules:
 
-Most latency is dominated by **queue wait time**, not computation time — indicating that the single-consumer pipeline is the primary throughput boundary.
+-   Buy Orders → Highest price first\
+-   Sell Orders → Lowest price first\
+-   Same price → Earlier order first\
+-   Match when Buy Price ≥ Sell Price
 
----
+Data structures:
 
-# 📌 Overview
+-   Buy Orders → Max Heap (PriorityQueue)
+-   Sell Orders → Min Heap (PriorityQueue)
 
-This system simulates a simplified financial order matching engine using:
+------------------------------------------------------------------------
 
-- Multi-threaded producers
-- Single-threaded matching consumer
-- Priority-based order matching
-- Latency and throughput measurement
-- Realistic queue-driven pipeline architecture
+# 📈 Performance Evolution Timeline
 
-The goal of this project is to understand how **high-throughput systems behave under load**, and how architectural decisions impact performance.
+## Stage 1 --- Baseline
 
----
+Throughput: \~417,953 trades/sec
 
-# 🧠 System Architecture
+Latency:\
+P50: 1509 µs\
+P95: 2276 µs\
+P99: 23876 µs
 
-```
-Producers (multi-threaded)
-        ↓
-BlockingQueue (thread-safe)
-        ↓
-Matching Engine (single consumer)
-        ↓
-OrderBook (priority-based matching)
-```
+Processing:\
+P50: 500 µs\
+P95: 2900 µs\
+P99: 4400 µs
 
-## Key Design Decisions
+------------------------------------------------------------------------
 
-- **Single consumer** avoids synchronization overhead
-- **BlockingQueue** ensures safe inter-thread communication
-- **PriorityQueue** enables efficient price-based matching
-- **Latency instrumentation** enables performance diagnostics
+## Stage 2 --- Memory Optimization
 
----
+Throughput: \~535,000 trades/sec
 
-# ⚙️ Matching Logic
+Changes:
 
-Orders are matched based on:
+-   Removed Trade object storage
+-   Replaced with trade counter
 
-1. Price priority
-2. Time priority (FIFO within same price)
+------------------------------------------------------------------------
 
-## Rules
+## Stage 3 --- Primitive Latency Arrays
 
-- Buy orders use **max-heap**
-- Sell orders use **min-heap**
-- A match occurs when:
+Throughput: \~652,000 trades/sec
 
-```
-buyPrice >= sellPrice
-```
+Changes:
 
-Trade quantity:
+-   Replaced List`<Long>`{=html} with long\[\]
+-   Removed boxing overhead
 
-```
-min(buyQty, sellQty)
-```
+------------------------------------------------------------------------
 
----
+## Stage 4 --- Comparator Optimization
 
-# 📊 Latency Types Measured
+Throughput: \~705,000 trades/sec
 
-## End-to-End Latency
+Changes:
 
-```
-Order creation → Order match
-```
+-   Inline comparator logic
+-   Reduced heap comparison overhead
 
-Includes:
+------------------------------------------------------------------------
 
-- Queue wait time
-- Matching wait time
-- Processing time
+## Stage 5 --- Final Optimized Engine
 
----
+Final Performance:
 
-## Processing Latency
+Throughput: **\~764,251 trades/sec**
 
-```
-Time spent inside addOrder()
-```
+Latency:
 
-Includes:
+P50: 863 µs\
+P95: 1270 µs\
+P99: 9930 µs
 
-- Heap operations
-- Matching logic
-- Order updates
+Processing:
 
-Excludes:
+P50: 100 µs\
+P95: 1100 µs\
+P99: 1700 µs
 
-- Queue wait time
+------------------------------------------------------------------------
 
----
+# 📊 Final Performance Summary
 
-# 🧰 Tech Stack
+Test Environment:
 
-- Java (JDK 17+ recommended)
-- java.util.concurrent
-- PriorityQueue
-- BlockingQueue
-- Lombok (optional)
-- JUnit (planned)
+CPU: Intel i5-7300HQ @ 2.5 GHz\
+Cores: 4\
+RAM: 8 GB\
+OS: Windows 10\
+Java: 17.0.8 LTS
 
----
+Queue Type: ArrayBlockingQueue\
+Queue Capacity: 1000\
+Producer Threads: 2\
+Benchmark Duration: 10 seconds
 
-# 📂 Project Structure
+------------------------------------------------------------------------
 
-```
-src/
+# 📉 Net Improvements
 
-OrderType.java
-    Enum representing BUY and SELL orders
+Throughput:
 
-Order.java
-    Core order model with price, quantity, timestamp
+417k → 764k trades/sec\
+≈ **+83% improvement**
 
-Trade.java
-    Trade execution model
+P99 Latency:
 
-OrderBook.java
-    Maintains buy/sell priority queues
-    Handles order matching
+23876 µs → 9930 µs\
+≈ **−58% reduction**
 
-MatchingEngine.java
-    Consumer thread
-    Processes incoming orders
-    Measures processing latency
+Processing P99:
 
-Producer.java
-    Generates orders concurrently
+4400 µs → 1700 µs\
+≈ **−61% reduction**
 
-Main.java
-    System orchestration
-    Performance measurement
-```
+------------------------------------------------------------------------
 
----
+# 🧪 Testing Methodology
 
-# 🎯 Why Single Consumer?
+-   Continuous order generation
+-   Multi-producer load
+-   10-second benchmark window
+-   Latency percentile tracking
 
-Multiple consumers would require:
+Metrics recorded:
 
-- Locks
-- Synchronization
-- Contention handling
+-   Throughput
+-   P50 latency
+-   P95 latency
+-   P99 latency
+-   Processing latency
 
-Instead:
+------------------------------------------------------------------------
 
-```
-Many Producers → One Consumer
-```
+# 🚧 Future Enhancements
 
-## Benefits
+Planned:
 
-- Predictable latency
-- Reduced lock overhead
-- Deterministic processing order
+-   Replace ArrayBlockingQueue with RingBuffer
+-   Multi-order-book partitioning
+-   Parallel matching engines
+-   Lock-free routing
 
-This pattern is widely used in **low-latency event-driven systems**.
+Target:
 
----
+**1,000,000+ trades/sec**
 
-# ▶️ How to Run
+------------------------------------------------------------------------
 
-Compile:
+# 🏁 Current Capability
 
-```
-javac *.java
-```
+\~764,000 trades/sec\
+\~863 µs P50 latency\
+\~9.9 ms P99 latency\
+Single matching thread\
+Commodity laptop hardware
 
-Run:
+Achieved through:
 
-```
-java Main
-```
-
-Expected output:
-
-```
-Total Trades: XXXXX
-Throughput: XXXXX trades/sec
-
-End-to-End P50: ...
-End-to-End P95: ...
-End-to-End P99: ...
-
-Processing P50: ...
-Processing P95: ...
-Processing P99: ...
-```
-
----
-
-# 🔧 Load Configuration
-
-Inside:
-
-```
-Producer.java
-```
-
-Control load using:
-
-```java
-Thread.sleep(0);
-```
-
-Options:
-
-```
-sleep(1) → low load  
-sleep(0) → moderate load  
-no sleep → maximum load  
-```
-
----
-
-# ⚠️ Current Limitations
-
-- Trade objects stored in memory (optimization planned)
-- No batching yet
-- No persistence layer
-- No distributed partitioning
-- No network interface
-
----
-
-# 🔄 Planned Improvements (Stage 4)
-
-- Replace Trade list with lightweight counters
-- Reduce object allocation
-- Introduce batching
-- Improve memory locality
-- Reduce GC pressure
-- Optimize latency distribution
-
-Expected outcomes:
-
-- Higher throughput
-- Lower P99 latency
-- Reduced memory overhead
-
----
-
-# 🌐 Future Enhancements (Stage 5)
-
-- HTTP API for order submission
-- External load testing integration
-- Metrics export support
-- Multi-partition matching simulation
-- Distributed deployment model
-
----
-
-# 📚 Learning Outcomes
-
-This project demonstrates:
-
-- Multi-threaded system design
-- Producer–consumer architecture
-- Queue-driven system behavior
-- Latency measurement techniques
-- Throughput benchmarking
-- Bottleneck identification
-- Performance-oriented design
-
----
-
-# 💻 Hardware Used
-
-```
-CPU: Intel i5-7300HQ @ 2.5 GHz
-Cores: 4
-RAM: 8 GB
-Storage: ~1 TB
-GPU: 4 GB (not used in computation)
-Operating System: Windows 10
-Java Version: 17
-```
+-   Heap optimization
+-   Memory-aware design
+-   Hot-path tuning
+-   Comparator optimization
+-   Latency instrumentation

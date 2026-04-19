@@ -2,13 +2,11 @@ package org.ultra_low_latency_order_matching_engine;
 
 import org.ultra_low_latency_order_matching_engine.enums.OrderType;
 import org.ultra_low_latency_order_matching_engine.model.Order;
-import org.ultra_low_latency_order_matching_engine.model.Trade;
 import org.ultra_low_latency_order_matching_engine.services.MatchingEngine;
 import org.ultra_low_latency_order_matching_engine.services.OrderBook;
 import org.ultra_low_latency_order_matching_engine.services.Producer;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 
 public class Main {
@@ -36,29 +34,29 @@ public class Main {
     private static void printPerformance(OrderBook orderBook, long startTime, long endTime, MatchingEngine engine) {
         long duration = endTime - startTime;
         double seconds = duration / 1_000_000_000.0;
-        long totalTrades = orderBook.getTrades().size();
+        long totalTrades = orderBook.getTradeCount();
         double throughPut = totalTrades / seconds;
         System.out.println("Total trades: " + totalTrades);
         System.out.println("Throughput: " + throughPut + " trades/sec");
-        List<Long> latencies = orderBook.getLatencies();
-        if (latencies.isEmpty()) {
+        long[] latencies = orderBook.getLatencies();
+        if (latencies.length==0) {
             System.out.println("No latency data");
             return;
         }
-        Collections.sort(latencies);
-        int size = latencies.size();
-        long p50 = latencies.get(size * 50 / 100);
-        long p95 = latencies.get(size * 95 / 100);
-        long p99 = latencies.get(size * 99 / 100);
+        Arrays.sort(latencies, 0, orderBook.getLatencyCount());
+        int size = orderBook.getLatencyCount();
+        long p50 = latencies[size * 50 / 100];
+        long p95 = latencies[size * 95 / 100];
+        long p99 = latencies[size * 99 / 100];
         System.out.println("p50 latency (us): " + p50 / 1000);
         System.out.println("p95 latency (us): " + p95 / 1000);
         System.out.println("p99 latency (us): " + p99 / 1000);
-        List<Long> processingLatencies = engine.getProcessingLatencies();
-        Collections.sort(processingLatencies);
-        size = engine.getProcessingLatencies().size();
-        p50 = engine.getProcessingLatencies().get(size * 50 / 100);
-        p95 = engine.getProcessingLatencies().get(size * 95 / 100);
-        p99 = engine.getProcessingLatencies().get(size * 99 / 100);
+        long[] processingLatencies = engine.getProcessingLatencies();
+        Arrays.sort(processingLatencies);
+        size = engine.getProcessingLatencies().length;
+        p50 = engine.getProcessingLatencies()[size * 50 / 100];
+        p95 = engine.getProcessingLatencies()[size * 95 / 100];
+        p99 = engine.getProcessingLatencies()[size * 99 / 100];
         System.out.println("p50 latency processing: " + p50);
         System.out.println("p95 latency processing: " + p95);
         System.out.println("p99 latency processing: " + p99);
@@ -90,9 +88,4 @@ public class Main {
         thread.start();
     }
 
-    public static void printTrades(OrderBook orderBook) {
-        for (Trade trade : orderBook.getTrades()) {
-            System.out.println(trade);
-        }
-    }
 }
