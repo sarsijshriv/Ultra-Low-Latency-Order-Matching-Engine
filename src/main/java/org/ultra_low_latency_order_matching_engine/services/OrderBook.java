@@ -16,6 +16,7 @@ public class OrderBook {
     private final PriorityQueue<Order> sellOrders;
     @Getter
     private final List<Trade> trades;
+    private final List<Long> latencies = new ArrayList<>();
 
     public OrderBook() {
         buyOrders = new PriorityQueue<>(
@@ -48,8 +49,10 @@ public class OrderBook {
             long tradePrice = sellOrder.getPrice();
 
             Trade trade = new Trade(buyOrder.getId(), sellOrder.getId(), tradePrice, tradeQty, System.nanoTime());
-
             trades.add(trade);
+
+            long latency = System.nanoTime() - buyOrder.getCreatedTime();
+            latencies.add(latency);
 
             buyOrder.reduceQuantity(tradeQty);
             sellOrder.reduceQuantity(tradeQty);
@@ -61,4 +64,10 @@ public class OrderBook {
             }
         }
     }
+
+    public List<Long> getLatencies() {
+        return latencies;
+    }
+
+
 }
