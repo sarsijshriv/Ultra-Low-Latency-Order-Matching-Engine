@@ -1,32 +1,39 @@
 package org.ultra_low_latency_order_matching_engine.services;
 
-import lombok.Getter;
 import org.ultra_low_latency_order_matching_engine.enums.OrderType;
 import org.ultra_low_latency_order_matching_engine.model.Order;
-import org.ultra_low_latency_order_matching_engine.model.Trade;
 
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
 import java.util.PriorityQueue;
 
 public class OrderBook {
 
     private final PriorityQueue<Order> buyOrders;
     private final PriorityQueue<Order> sellOrders;
-    @Getter
-    private final List<Trade> trades;
-    private final List<Long> latencies = new ArrayList<>();
+    private static final int MAX_TRADES = 20_000_000;
+    private long tradeCount = 0;
+    private final long[] latencies = new long[MAX_TRADES];
+    private int latencyIndex = 0;
 
     public OrderBook() {
         buyOrders = new PriorityQueue<>(
-                Comparator.comparingLong(Order::getPrice).reversed().thenComparing(Order::getId)
+                (order1, order2) -> {
+                    int priceCompare = Long.compare(order2.getPrice(), order1.getPrice());
+                    if(priceCompare !=0){
+                        return priceCompare;
+                    }
+                    return Long.compare(order1.getId(), order2.getId());
+                }
         );
         sellOrders = new PriorityQueue<>(
-                Comparator.comparingLong(Order::getPrice).thenComparingLong(Order::getId)
+                (order1, order2) -> {
+                    int priceCompare = Long.compare(order1.getPrice(), order2.getPrice());
+                    if(priceCompare !=0){
+                        return priceCompare;
+                    }
+                    return Long.compare(order1.getId(), order2.getId());
+                }
         );
-
-        trades = new ArrayList<>();
     }
 
     public void addOrder(Order order) {
@@ -39,21 +46,23 @@ public class OrderBook {
     }
 
     private void matchOrders() {
-        while (!buyOrders.isEmpty() && !sellOrders.isEmpty() &&
-                sellOrders.peek().getPrice() <= buyOrders.peek().getPrice()) {
+        while (true) {
             Order buyOrder = buyOrders.peek();
             Order sellOrder = sellOrders.peek();
 
-            long tradeQty = Math.min(buyOrder.getQuantity(), sellOrder.getQuantity());
+            if(buyOrder == null || sellOrder == null) break;
 
-            long tradePrice = sellOrder.getPrice();
+            long buyPrice = buyOrder.getPrice();
+            long sellPrice = sellOrder.getPrice();
 
-            Trade trade = new Trade(buyOrder.getId(), sellOrder.getId(), tradePrice, tradeQty, System.nanoTime());
-            trades.add(trade);
+            if(sellPrice > buyPrice) break;
 
-            long latency = System.nanoTime() - buyOrder.getCreatedTime();
-            latencies.add(latency);
+            long buyQuantity = buyOrder.getQuantity();
+            long sellQuantity = sellOrder.getQuantity();
 
+            long tradeQty = buyQuantity < sellQuantity ? buyQuantity : sellQuantity;
+            tradeCount++;
+            latencies[latencyIndex++] = System.nanoTime() - buyOrder.getCreatedTime();
             buyOrder.reduceQuantity(tradeQty);
             sellOrder.reduceQuantity(tradeQty);
             if (buyOrder.isFilled()) {
@@ -65,9 +74,15 @@ public class OrderBook {
         }
     }
 
-    public List<Long> getLatencies() {
+    public long[] getLatencies() {
         return latencies;
     }
 
+    public Long getTradeCount() {
+        return tradeCount;
+    }
 
+    public int getLatencyCount() {
+        return latencyIndex;
+    }
 }
