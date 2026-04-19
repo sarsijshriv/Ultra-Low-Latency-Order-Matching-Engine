@@ -52,8 +52,8 @@ public class Main {
         System.out.println("p95 latency (us): " + p95 / 1000);
         System.out.println("p99 latency (us): " + p99 / 1000);
         long[] processingLatencies = engine.getProcessingLatencies();
-        Arrays.sort(processingLatencies);
-        size = engine.getProcessingLatencies().length;
+        Arrays.sort(processingLatencies, 0,(int) engine.getTotalProcessedCount());
+        size = (int) engine.getTotalProcessedCount();
         p50 = engine.getProcessingLatencies()[size * 50 / 100];
         p95 = engine.getProcessingLatencies()[size * 95 / 100];
         p99 = engine.getProcessingLatencies()[size * 99 / 100];
