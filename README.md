@@ -1,208 +1,449 @@
-# 🚀 Ultra-Low Latency Order Matching Engine (Java)
 
-A high-performance, multi-threaded **price-time priority order matching
-engine** built from scratch in Java and optimized through systematic
-performance engineering.
+# 🚀 Ultra-Low-Latency Order Matching Engine (Java)
 
-------------------------------------------------------------------------
+A high-performance, lock-free, multi-threaded order matching engine built from scratch in Java, designed to simulate the core infrastructure used in real-world trading systems and high-frequency event pipelines.
 
-# 📌 Project Overview
+---
 
-Core pipeline:
+# 🧠 Why This Project Exists
 
-Multiple Producers → ArrayBlockingQueue → MatchingEngine → OrderBook →
-Trade Execution
+Most backend systems rely on blocking abstractions and frameworks.
 
-Design goals:
+This project intentionally avoids those to:
 
--   Ultra-low latency execution
--   High throughput matching
--   Deterministic price-time priority
--   Minimal memory allocation
--   Measurable performance tuning
+- Understand how hardware affects software
+- Explore lock-free data structures
+- Measure real system latency
+- Optimize through evidence, not assumptions
+- Build systems-level engineering intuition
 
-------------------------------------------------------------------------
+This project is not just an implementation — it is a **performance engineering journey**.
 
-# ⚙️ System Architecture
+---
 
-Producer #1\
-Producer #2\
-↓\
-ArrayBlockingQueue (Capacity: 1000)\
-↓\
-Matching Engine (Single Consumer)\
-↓\
-Order Book (Buy Heap + Sell Heap)
+# 🏗️ System Architecture
 
-------------------------------------------------------------------------
+![System Architecture](architecture.png)
 
-# 🧠 Matching Model
+High-Level Flow:
 
-Rules:
+Multiple Producers  
+↓  
+Lock-Free Ring Buffer (MPSC)  
+↓  
+Single Matching Engine  
+↓  
+Order Book (Priority Queues)
 
--   Buy Orders → Highest price first\
--   Sell Orders → Lowest price first\
--   Same price → Earlier order first\
--   Match when Buy Price ≥ Sell Price
+Design Principles:
 
-Data structures:
+- Multiple writers
+- Single consumer
+- No locks in matching path
+- Minimal contention
+- Cache-aware memory layout
 
--   Buy Orders → Max Heap (PriorityQueue)
--   Sell Orders → Min Heap (PriorityQueue)
+---
 
-------------------------------------------------------------------------
+# 📦 Core Components
 
-# 📈 Performance Evolution Timeline
+## Order
 
-## Stage 1 --- Baseline
+Represents a market order.
 
-Throughput: \~417,953 trades/sec
+Fields:
 
-Latency:\
-P50: 1509 µs\
-P95: 2276 µs\
-P99: 23876 µs
+- orderId
+- price
+- quantity
+- timestamp
+- orderType
+- createdTime
 
-Processing:\
-P50: 500 µs\
-P95: 2900 µs\
-P99: 4400 µs
+Responsibilities:
 
-------------------------------------------------------------------------
+- Support partial fills
+- Track remaining quantity
+- Maintain creation timestamp
+- Enable latency measurement
 
-## Stage 2 --- Memory Optimization
+---
 
-Throughput: \~535,000 trades/sec
+## OrderBook
 
-Changes:
+Maintains:
 
--   Removed Trade object storage
--   Replaced with trade counter
+- Buy Orders → Max Heap
+- Sell Orders → Min Heap
 
-------------------------------------------------------------------------
+Matching Rule:
 
-## Stage 3 --- Primitive Latency Arrays
+BUY.price ≥ SELL.price
 
-Throughput: \~652,000 trades/sec
+Characteristics:
 
-Changes:
+- FIFO within same price
+- Partial matching supported
+- Continuous matching loop
 
--   Replaced List`<Long>`{=html} with long\[\]
--   Removed boxing overhead
+Design Choice:
 
-------------------------------------------------------------------------
+PriorityQueue used for:
 
-## Stage 4 --- Comparator Optimization
+- O(log N) insert
+- O(log N) removal
+- Efficient price ordering
 
-Throughput: \~705,000 trades/sec
+---
 
-Changes:
+## RingBuffer (Custom Lock-Free Queue)
 
--   Inline comparator logic
--   Reduced heap comparison overhead
+Multi-Producer Single-Consumer (MPSC) queue implemented using:
 
-------------------------------------------------------------------------
+Compare-And-Swap (CAS)
 
-## Stage 5 --- Final Optimized Engine
+Key Features:
 
-Final Performance:
+- Lock-free publishing
+- Bitmask indexing (no modulo)
+- Busy-wait consumer
+- False-sharing prevention
+- Cache-friendly layout
 
-Throughput: **\~764,251 trades/sec**
+Replaced:
 
-Latency:
+ArrayBlockingQueue
 
-P50: 863 µs\
-P95: 1270 µs\
-P99: 9930 µs
+Reason:
 
-Processing:
+Blocking queues introduce kernel scheduling overhead.
 
-P50: 100 µs\
-P95: 1100 µs\
-P99: 1700 µs
+---
 
-------------------------------------------------------------------------
+## MatchingEngine
 
-# 📊 Final Performance Summary
+Single-threaded consumer responsible for:
 
-Test Environment:
+- Reading orders
+- Matching orders
+- Recording latency
+- Tracking throughput
 
-CPU: Intel i5-7300HQ @ 2.5 GHz\
-Cores: 4\
-RAM: 8 GB\
-OS: Windows 10\
-Java: 17.0.8 LTS
+Why Single Thread?
 
-Queue Type: ArrayBlockingQueue\
-Queue Capacity: 1000\
-Producer Threads: 2\
-Benchmark Duration: 10 seconds
+Avoids locking inside OrderBook.
 
-------------------------------------------------------------------------
+---
 
-# 📉 Net Improvements
+## Producer
+
+Responsibilities:
+
+- Generate synthetic load
+- Publish orders continuously
+- Simulate real traffic
+
+Multiple producers run concurrently.
+
+---
+
+# ⚙️ Optimization Journey
+
+## Stage 1 — Baseline Matching Engine
+
+Initial implementation:
+
+- OrderBook
+- PriorityQueue Matching
+- Single-threaded execution
+
+Focus:
+
+Correctness first
+
+---
+
+## Stage 2 — Multi-Threaded Producers
+
+Introduced:
+
+- Multiple producer threads
+- BlockingQueue communication
+
+Problem:
+
+Blocking queues limited throughput.
+
+---
+
+## Stage 3 — Lock-Free RingBuffer
+
+Replaced:
+
+BlockingQueue → Custom RingBuffer
+
+Implemented:
+
+- CAS-based publish
+- Busy-wait consume
+- Power-of-two indexing
+
+Result:
+
+Major throughput improvement.
+
+---
+
+## Stage 4 — Cache Optimization
+
+Implemented:
+
+- False-sharing padding
+- Separated read/write indexes
+
+Result:
+
+Reduced cache contention and latency jitter.
+
+---
+
+## Stage 5 — Producer Scaling Analysis
+
+Tested:
+
+1 → 6 producer threads
+
+Observation:
+
+Peak performance at 3 producers.
+
+Reason:
+
+3 producers + 1 consumer = 4 CPU cores.
+
+More producers caused:
+
+- Context switching
+- CAS contention
+- Performance regression
+
+---
+
+## Stage 6 — Latency Instrumentation
+
+Implemented:
+
+- End-to-End latency tracking
+- Processing latency tracking
+- Percentile calculation
+
+Measured:
+
+- P50
+- P95
+- P99
+
+This enabled real bottleneck discovery.
+
+---
+
+# 📊 Benchmark Methodology
+
+Benchmarks were performed using:
+
+- Continuous synthetic load
+- Fixed-duration runs
+- Latency percentile tracking
+- Produced vs Consumed validation
+
+Duration:
+
+60 seconds sustained load
+
+This exposes:
+
+- CPU throttling
+- Scheduling contention
+- Long-term stability
+
+---
+
+# 🧪 Hardware Environment
+
+CPU: Intel i5-7300HQ (4 cores)  
+RAM: 8 GB  
+Java: 17 LTS  
+OS: Windows 10
+
+---
+
+# 📈 Final Performance Results
+
+Configuration:
+
+Producers: 3  
+RingBuffer Size: 8192  
+Runtime: 60 seconds
+
+Results:
+
+Total Trades:
+
+58,327,987
 
 Throughput:
 
-417k → 764k trades/sec\
-≈ **+83% improvement**
+971,801 trades/sec
 
-P99 Latency:
+Latency:
 
-23876 µs → 9930 µs\
-≈ **−58% reduction**
+P50: 5602 ns  
+P95: 7340 ns  
+P99: 23050 ns
 
-Processing P99:
+Processing Latency:
 
-4400 µs → 1700 µs\
-≈ **−61% reduction**
+P50: 300 ns  
+P95: 1600 ns  
+P99: 2300 ns
 
-------------------------------------------------------------------------
+---
 
-# 🧪 Testing Methodology
+# 📉 Producer Scaling Results
 
--   Continuous order generation
--   Multi-producer load
--   10-second benchmark window
--   Latency percentile tracking
+Producers | Throughput
+-----------|-------------
+1 | ~600k/sec
+2 | ~1.2M/sec
+3 | ~1.3M/sec (Optimal)
+4 | Plateau
+6 | Regression
 
-Metrics recorded:
+Key Insight:
 
--   Throughput
--   P50 latency
--   P95 latency
--   P99 latency
--   Processing latency
+Thread count must match CPU cores.
 
-------------------------------------------------------------------------
+---
 
-# 🚧 Future Enhancements
+# 🔍 Engineering Insights
 
-Planned:
+## Insight 1 — Matching Is Not the Bottleneck
 
--   Replace ArrayBlockingQueue with RingBuffer
--   Multi-order-book partitioning
--   Parallel matching engines
--   Lock-free routing
+Processing ≈ 300 ns  
+Total latency ≈ 5600 ns
 
-Target:
+Most time spent waiting, not matching.
 
-**1,000,000+ trades/sec**
+---
 
-------------------------------------------------------------------------
+## Insight 2 — Lock-Free Design Matters
 
-# 🏁 Current Capability
+Replacing BlockingQueue:
 
-\~764,000 trades/sec\
-\~863 µs P50 latency\
-\~9.9 ms P99 latency\
-Single matching thread\
-Commodity laptop hardware
+- Major throughput increase
+- Lower latency jitter
 
-Achieved through:
+---
 
--   Heap optimization
--   Memory-aware design
--   Hot-path tuning
--   Comparator optimization
--   Latency instrumentation
+## Insight 3 — CPU Cache Behavior Matters
+
+False-sharing caused:
+
+Latency instability.
+
+Padding fixed:
+
+Cache contention.
+
+---
+
+## Insight 4 — Scaling Has Limits
+
+More threads does not always mean faster.
+
+Hardware limits exist.
+
+---
+
+# 📌 Future Improvements
+
+## Multi-Symbol Matching
+
+Partition system:
+
+Symbol → Dedicated OrderBook
+
+Benefit:
+
+Parallel matching pipelines.
+
+---
+
+## Object Pooling
+
+Reuse Order objects.
+
+Benefit:
+
+Reduced allocation pressure.
+
+---
+
+## Async Trade Logging
+
+Persist trades asynchronously.
+
+Possible targets:
+
+- Kafka
+- Elasticsearch
+- File WAL
+
+---
+
+## Custom Heap Implementation
+
+Replace PriorityQueue with:
+
+Price-level buckets.
+
+---
+
+## Thread Affinity
+
+Pin threads to CPU cores.
+
+Benefit:
+
+Better cache locality.
+
+---
+
+# ▶️ How to Run
+
+Compile:
+
+javac *.java
+
+Run:
+
+java Main
+
+---
+
+# 🧠 Skills Demonstrated
+
+- Lock-free concurrency
+- Multi-threaded system design
+- Latency measurement
+- Performance optimization
+- CPU-aware engineering
+- Benchmark-driven development
+
+---
+
+# ⭐ Final Summary
+
+This project demonstrates how a simple system evolves into a high-performance concurrent engine through careful measurement, architectural changes, and hardware-aware optimizations.
+
+It reflects real engineering trade-offs and performance reasoning.

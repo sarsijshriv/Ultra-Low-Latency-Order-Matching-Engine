@@ -2,36 +2,36 @@ package org.ultra_low_latency_order_matching_engine.services;
 
 import org.ultra_low_latency_order_matching_engine.model.Order;
 
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class MatchingEngine implements Runnable {
 
-    private final ArrayBlockingQueue<Order> queue;
+    RingBuffer ringBuffer;
     private final OrderBook orderBook;
     private static boolean running = true;
     private static final int MAX_TRADES = 20_000_000;
     private final long[] processingLatencies = new long[(int) MAX_TRADES];
     private static int processingIndex = 0;
-
-    public MatchingEngine(ArrayBlockingQueue<Order> queue, OrderBook orderBook) {
-        this.queue = queue;
+    private static final AtomicLong consumedCount = new AtomicLong(0);
+    public MatchingEngine(RingBuffer ringBuffer, OrderBook orderBook) {
+        this.ringBuffer = ringBuffer;
         this.orderBook = orderBook;
     }
 
     @Override
     public void run() {
-        while (running || !queue.isEmpty()) {
+        while (running) {
             Order order = null;
-            try {
-                order = queue.take();
-                if (order.getId() == -1) break;
-                long processingStart = System.nanoTime();
-                orderBook.addOrder(order);
-                long processingEnd = System.nanoTime();
-                    processingLatencies[processingIndex++] = processingEnd - processingStart;
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+            while ((order = ringBuffer.consume()) == null) {
+                Thread.yield();
             }
+            long start = System.nanoTime();
+            orderBook.addOrder(order);
+            long end = System.nanoTime();
+            if(processingIndex < processingLatencies.length){
+                processingLatencies[processingIndex++] = end-start;
+            }
+            consumedCount.getAndIncrement();
         }
     }
 
@@ -45,6 +45,9 @@ public class MatchingEngine implements Runnable {
 
     public long getTotalProcessedCount() {
         return processingIndex;
+    }
+    public static long getConsumedCount(){
+        return consumedCount.get();
     }
 
 }

@@ -5,9 +5,9 @@ import org.ultra_low_latency_order_matching_engine.model.Order;
 import org.ultra_low_latency_order_matching_engine.services.MatchingEngine;
 import org.ultra_low_latency_order_matching_engine.services.OrderBook;
 import org.ultra_low_latency_order_matching_engine.services.Producer;
+import org.ultra_low_latency_order_matching_engine.services.RingBuffer;
 
 import java.util.Arrays;
-import java.util.concurrent.ArrayBlockingQueue;
 
 public class Main {
     private static Producer producer1;
@@ -15,20 +15,29 @@ public class Main {
     private static Thread producerthread1;
     private static Thread producerthread2;
     private static MatchingEngine engine;
+    private static Producer[] producers;
+    private static Thread[] threads;
 
     public static void main(String[] args) throws InterruptedException {
 
-        ArrayBlockingQueue<Order> queue = new ArrayBlockingQueue<>(1000);
+        RingBuffer ringBuffer = new RingBuffer(8192);
         OrderBook orderBook = new OrderBook();
-        startMatchingEngine(queue, orderBook);
-        startProducers(queue);
+        Thread.sleep(3000); // for pre-warmup
+        startMatchingEngine(ringBuffer, orderBook);
+        startProducers(ringBuffer, 3);
         long startTime = System.nanoTime();
-        Thread.sleep(10000);
+        Thread.sleep(5000);
         stopProducers();
+        while(MatchingEngine.getConsumedCount() < Producer.getProducedCount()){
+            Thread.yield();
+        }
         stopMatchingQueue();
-        queue.put(new Order(-1, 1, 1, OrderType.BUY));
+        ringBuffer.publish(new Order(-1, 1, 1, OrderType.BUY));
         long endTime = System.nanoTime();
         printPerformance(orderBook, startTime, endTime, engine);
+
+        System.out.println("Total produced: " + Producer.getProducedCount());
+        System.out.println("Total consumed: " + MatchingEngine.getConsumedCount());
     }
 
     private static void printPerformance(OrderBook orderBook, long startTime, long endTime, MatchingEngine engine) {
@@ -39,7 +48,7 @@ public class Main {
         System.out.println("Total trades: " + totalTrades);
         System.out.println("Throughput: " + throughPut + " trades/sec");
         long[] latencies = orderBook.getLatencies();
-        if (latencies.length==0) {
+        if (latencies.length == 0) {
             System.out.println("No latency data");
             return;
         }
@@ -52,7 +61,7 @@ public class Main {
         System.out.println("p95 latency (us): " + p95 / 1000);
         System.out.println("p99 latency (us): " + p99 / 1000);
         long[] processingLatencies = engine.getProcessingLatencies();
-        Arrays.sort(processingLatencies, 0,(int) engine.getTotalProcessedCount());
+        Arrays.sort(processingLatencies, 0, (int) engine.getTotalProcessedCount());
         size = (int) engine.getTotalProcessedCount();
         p50 = engine.getProcessingLatencies()[size * 50 / 100];
         p95 = engine.getProcessingLatencies()[size * 95 / 100];
@@ -66,24 +75,28 @@ public class Main {
         engine.stop();
     }
 
-    private static void stopProducers() {
-        producer1.stop();
-        producer2.stop();
+    private static void stopProducers() throws InterruptedException {
+        for(Producer producer: producers){
+            producer.stop();
+        }
+        for(Thread thread: threads){
+            thread.join();
+        }
     }
 
-    private static void startProducers(ArrayBlockingQueue<Order> queue) {
-        producer1 = new Producer(queue, 1);
-        producer2 = new Producer(queue, 2);
+    private static void startProducers(RingBuffer ringBuffer, int producerCount) {
+        producers = new Producer[producerCount];
+        threads = new Thread[producerCount];
 
-        producerthread1 = new Thread(producer1);
-        producerthread2 = new Thread(producer2);
-
-        producerthread1.start();
-        producerthread2.start();
+        for (int i = 0; i < producerCount; i++) {
+            producers[i] = new Producer(ringBuffer);
+            threads[i] = new Thread(producers[i]);
+            threads[i].start();
+        }
     }
 
-    private static void startMatchingEngine(ArrayBlockingQueue<Order> queue, OrderBook orderBook) {
-        engine = new MatchingEngine(queue, orderBook);
+    private static void startMatchingEngine(RingBuffer ringBuffer, OrderBook orderBook) {
+        engine = new MatchingEngine(ringBuffer, orderBook);
         Thread thread = new Thread(engine);
         thread.start();
     }

@@ -4,41 +4,41 @@ import org.ultra_low_latency_order_matching_engine.enums.OrderType;
 import org.ultra_low_latency_order_matching_engine.model.Order;
 
 import java.util.Random;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class Producer implements Runnable {
-    private final BlockingQueue<Order> queue;
-    private final int producerId;
-
-    private final Random random = new Random();
-
+    private final RingBuffer ringBuffer;
     private volatile boolean running = true;
-
-    public Producer(BlockingQueue<Order> queue, int producerId) {
-        this.queue = queue;
-        this.producerId = producerId;
+    private static final AtomicLong producedCount = new AtomicLong(0);
+    public Producer(RingBuffer ringBuffer) {
+        this.ringBuffer = ringBuffer;
     }
 
     @Override
     public void run() {
-        long orderId = producerId * 1000000L;
         while (running) {
-            long price = 9900 + random.nextInt(200);
-            long quantity = 1 + random.nextInt(10);
-            OrderType orderType = random.nextBoolean() ? OrderType.BUY : OrderType.SEll;
-            Order order = new Order(orderId++, price, quantity, orderType);
-
-            try {
-                queue.put(order);
-                Thread.sleep(0);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
+            Order order = generateOrder();
+            producedCount.getAndIncrement();
+            while (!ringBuffer.publish(order)) {
+                Thread.yield();
             }
         }
     }
 
+    private Order generateOrder() {
+        Random random = new Random();
+        int orderId = random.nextInt(100000);
+        long price = 9900 + random.nextInt(200);
+        long quantity = 1 + random.nextInt(10);
+        OrderType orderType = random.nextBoolean() ? OrderType.BUY : OrderType.SEll;
+        return new Order(orderId++, price, quantity, orderType);
+    }
+
     public void stop() {
         running = false;
+    }
+
+    public static long getProducedCount(){
+        return producedCount.get();
     }
 }

@@ -3,7 +3,6 @@ package org.ultra_low_latency_order_matching_engine.services;
 import org.ultra_low_latency_order_matching_engine.enums.OrderType;
 import org.ultra_low_latency_order_matching_engine.model.Order;
 
-import java.util.Comparator;
 import java.util.PriorityQueue;
 
 public class OrderBook {
@@ -19,7 +18,7 @@ public class OrderBook {
         buyOrders = new PriorityQueue<>(
                 (order1, order2) -> {
                     int priceCompare = Long.compare(order2.getPrice(), order1.getPrice());
-                    if(priceCompare !=0){
+                    if (priceCompare != 0) {
                         return priceCompare;
                     }
                     return Long.compare(order1.getId(), order2.getId());
@@ -28,7 +27,7 @@ public class OrderBook {
         sellOrders = new PriorityQueue<>(
                 (order1, order2) -> {
                     int priceCompare = Long.compare(order1.getPrice(), order2.getPrice());
-                    if(priceCompare !=0){
+                    if (priceCompare != 0) {
                         return priceCompare;
                     }
                     return Long.compare(order1.getId(), order2.getId());
@@ -50,19 +49,20 @@ public class OrderBook {
             Order buyOrder = buyOrders.peek();
             Order sellOrder = sellOrders.peek();
 
-            if(buyOrder == null || sellOrder == null) break;
+            if (buyOrder == null || sellOrder == null) break;
 
             long buyPrice = buyOrder.getPrice();
             long sellPrice = sellOrder.getPrice();
 
-            if(sellPrice > buyPrice) break;
+            if (sellPrice > buyPrice) break;
 
             long buyQuantity = buyOrder.getQuantity();
             long sellQuantity = sellOrder.getQuantity();
 
             long tradeQty = buyQuantity < sellQuantity ? buyQuantity : sellQuantity;
             tradeCount++;
-            latencies[latencyIndex++] = System.nanoTime() - buyOrder.getCreatedTime();
+            if (latencyIndex < latencies.length)
+                latencies[latencyIndex++] = System.nanoTime() - buyOrder.getCreatedTime();
             buyOrder.reduceQuantity(tradeQty);
             sellOrder.reduceQuantity(tradeQty);
             if (buyOrder.isFilled()) {
