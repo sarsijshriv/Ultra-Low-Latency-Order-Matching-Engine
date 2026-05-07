@@ -1,16 +1,26 @@
 # 🚀 Ultra-Low-Latency Order Matching Engine
 
-High-performance lock-free order matching engine built in Java to explore low-latency systems design, mechanical sympathy, and concurrent architecture patterns used in trading infrastructure.
+<p align="center">
+  <img src="https://img.shields.io/badge/Java-17-0f172a?style=for-the-badge&logo=openjdk&logoColor=white" />
+  <img src="https://img.shields.io/badge/Architecture-Lock--Free-2563eb?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Concurrency-MPSC-38bdf8?style=for-the-badge&labelColor=0f172a" />
+  <img src="https://img.shields.io/badge/Latency-P99%2023μs-0f172a?style=for-the-badge" />
+</p>
 
-Designed around:
-- lock-free communication
-- cache-aware data structures
-- predictable latency
-- benchmark-driven optimization
+<p align="center">
+  High-performance lock-free matching engine built in Java to explore low-latency systems design, cache-aware programming, and concurrent architecture patterns used in trading infrastructure.
+</p>
 
 ---
 
-# 📊 Performance
+# 📊 Performance Snapshot
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Throughput-971K%2B%20trades%2Fsec-2563eb?style=flat-square" />
+  <img src="https://img.shields.io/badge/P50-5.6μs-0f172a?style=flat-square" />
+  <img src="https://img.shields.io/badge/P95-7.3μs-1d4ed8?style=flat-square" />
+  <img src="https://img.shields.io/badge/P99-23μs-38bdf8?style=flat-square&labelColor=0f172a" />
+</p>
 
 | Metric | Result |
 |---|---|
@@ -20,22 +30,15 @@ Designed around:
 | P95 Latency | 7.3 µs |
 | P99 Latency | 23 µs |
 
-### Test Environment
-
-| Component | Value |
-|---|---|
-| CPU | Intel i5-7300HQ (4 cores) |
-| RAM | 8 GB |
-| Java | 17 LTS |
-| OS | Windows 10 |
-
 ---
 
 # 🏗️ Architecture
 
-![Architecture](architecture.png)
+<p align="center">
+  <img src="architecture.png" width="900" />
+</p>
 
-### Pipeline
+## Pipeline
 
 ```text
 Multiple Producers
@@ -47,7 +50,7 @@ Single Matching Engine
 Order Book
 ```
 
-### Design Goals
+## Design Goals
 
 - Multiple concurrent producers
 - Single-threaded matching path
@@ -70,13 +73,38 @@ Order Book
 
 ---
 
-# 🔧 Key Optimizations
+# 🔧 Optimization Journey
 
-## Lock-Free Ring Buffer
+## Stage 1 — Baseline Matching Engine
 
-Replaced `ArrayBlockingQueue` with custom CAS-based MPSC ring buffer.
+- Single-threaded matching
+- PriorityQueue-based order book
+- Focused on correctness first
+
+---
+
+## Stage 2 — Multi-Threaded Producers
+
+Introduced:
+- multiple producer threads
+- BlockingQueue communication
+
+### Bottleneck
+
+Blocking queues limited throughput under sustained contention.
+
+---
+
+## Stage 3 — Lock-Free Ring Buffer
+
+Replaced:
+
+```text
+ArrayBlockingQueue → Custom CAS-based RingBuffer
+```
 
 ### Features
+
 - lock-free publishing
 - power-of-two indexing
 - bitmask access
@@ -84,13 +112,14 @@ Replaced `ArrayBlockingQueue` with custom CAS-based MPSC ring buffer.
 - reduced coordination overhead
 
 ### Result
+
 - higher throughput
 - lower latency jitter
 - reduced scheduler interference
 
 ---
 
-## Cache-Aware Design
+## Stage 4 — Cache Optimization
 
 Implemented:
 - cache-line padding
@@ -98,28 +127,12 @@ Implemented:
 - contention reduction
 
 ### Result
-Lower latency variance under sustained load.
+
+Reduced cache contention and improved latency consistency.
 
 ---
 
-## Single Consumer Matching
-
-Matching engine intentionally runs on a single thread.
-
-### Why?
-
-Avoids:
-- locks inside order book
-- synchronization overhead
-- coordination complexity
-
-Tradeoff:
-- simpler deterministic matching path
-- bounded scaling model
-
----
-
-# 📈 Scaling Analysis
+## Stage 5 — Producer Scaling Analysis
 
 | Producers | Throughput |
 |---|---|
@@ -138,13 +151,28 @@ Beyond that:
 - context switching increased
 - throughput regressed
 
-This highlighted hardware-aware scaling limits.
+---
+
+## Stage 6 — Latency Instrumentation
+
+Implemented:
+- end-to-end latency tracking
+- processing latency tracking
+- percentile calculations
+
+Measured:
+- P50
+- P95
+- P99
+
+This enabled actual bottleneck analysis instead of assumption-driven optimization.
 
 ---
 
 # 🧪 Benchmark Methodology
 
 Benchmarks were executed using:
+
 - continuous synthetic load
 - sustained 60-second runs
 - percentile latency tracking
@@ -154,7 +182,18 @@ Measured:
 - throughput
 - end-to-end latency
 - processing latency
-- percentile distribution (P50/P95/P99)
+- percentile distribution
+
+---
+
+# 💻 Hardware Environment
+
+| Component | Value |
+|---|---|
+| CPU | Intel i5-7300HQ (4 cores) |
+| RAM | 8 GB |
+| Java | 17 LTS |
+| OS | Windows 10 |
 
 ---
 
@@ -195,13 +234,12 @@ Additional threads introduced:
 
 This project intentionally focuses on matching-path performance and concurrency behavior.
 
-It does not yet model:
-- order cancellation
+It does not yet implement:
 - persistence/recovery
+- order cancellation flows
 - replay logs
 - market orders
-- risk management
-- distributed matching
+- risk validation
 - deterministic replication
 
 ---
@@ -243,6 +281,10 @@ java Main
 
 # 🧠 Concepts Demonstrated
 
+<p align="center">
+  <img src="https://skillicons.dev/icons?i=java" />
+</p>
+
 - Lock-free concurrency
 - CAS synchronization
 - MPSC queue design
@@ -260,3 +302,9 @@ java Main
 This project was built to understand how architectural decisions, CPU behavior, synchronization strategies, and memory access patterns affect real-world system latency and throughput.
 
 It focuses on measurable engineering tradeoffs rather than framework-heavy abstractions.
+
+---
+
+<p align="center">
+  Built for performance engineering exploration and systems-level backend learning.
+</p>
