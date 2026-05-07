@@ -2,25 +2,17 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Java-17-0f172a?style=for-the-badge&logo=openjdk&logoColor=white" />
-  <img src="https://img.shields.io/badge/Architecture-Lock--Free-2563eb?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Concurrency-MPSC-38bdf8?style=for-the-badge&labelColor=0f172a" />
-  <img src="https://img.shields.io/badge/Latency-P99%2023μs-0f172a?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Lock--Free-MPSC-2563eb?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/P99-23μs-38bdf8?style=for-the-badge&labelColor=0f172a" />
 </p>
 
 <p align="center">
-  High-performance lock-free matching engine built in Java to explore low-latency systems design, cache-aware programming, and concurrent architecture patterns used in trading infrastructure.
+  High-performance lock-free matching engine built in Java to explore low-latency systems design, cache-aware concurrency, and mechanical sympathy principles used in trading infrastructure.
 </p>
 
 ---
 
 # 📊 Performance Snapshot
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Throughput-971K%2B%20trades%2Fsec-2563eb?style=flat-square" />
-  <img src="https://img.shields.io/badge/P50-5.6μs-0f172a?style=flat-square" />
-  <img src="https://img.shields.io/badge/P95-7.3μs-1d4ed8?style=flat-square" />
-  <img src="https://img.shields.io/badge/P99-23μs-38bdf8?style=flat-square&labelColor=0f172a" />
-</p>
 
 | Metric | Result |
 |---|---|
@@ -29,6 +21,16 @@
 | P50 Latency | 5.6 µs |
 | P95 Latency | 7.3 µs |
 | P99 Latency | 23 µs |
+| Processing Latency (P50) | ~300 ns |
+
+### Environment
+
+| Component | Value |
+|---|---|
+| CPU | Intel i5-7300HQ (4 cores) |
+| RAM | 8 GB |
+| Java | 17 LTS |
+| OS | Windows 10 |
 
 ---
 
@@ -38,7 +40,7 @@
   <img src="architecture.png" width="900" />
 </p>
 
-## Pipeline
+## Processing Pipeline
 
 ```text
 Multiple Producers
@@ -52,12 +54,11 @@ Order Book
 
 ## Design Goals
 
-- Multiple concurrent producers
+- Lock-free producer communication
 - Single-threaded matching path
-- No locks during matching
-- Minimal contention
-- Cache-friendly memory layout
-- Predictable latency under load
+- Minimal coordination overhead
+- Cache-aware memory layout
+- Predictable latency under sustained load
 
 ---
 
@@ -65,7 +66,7 @@ Order Book
 
 | Component | Responsibility |
 |---|---|
-| `Producer` | Generates synthetic market traffic |
+| `Producer` | Generates synthetic order flow |
 | `RingBuffer` | Lock-free MPSC queue using CAS |
 | `MatchingEngine` | Single-threaded matching consumer |
 | `OrderBook` | Maintains buy/sell priority queues |
@@ -77,21 +78,20 @@ Order Book
 
 ## Stage 1 — Baseline Matching Engine
 
-- Single-threaded matching
-- PriorityQueue-based order book
-- Focused on correctness first
+Initial implementation focused on:
+- single-threaded matching
+- correctness
+- priority-queue-based order books
 
 ---
 
-## Stage 2 — Multi-Threaded Producers
+## Stage 2 — Multi-Producer Architecture
 
-Introduced:
-- multiple producer threads
-- BlockingQueue communication
+Introduced concurrent producer threads using `BlockingQueue`.
 
 ### Bottleneck
 
-Blocking queues limited throughput under sustained contention.
+Blocking coordination reduced throughput under sustained contention.
 
 ---
 
@@ -106,16 +106,16 @@ ArrayBlockingQueue → Custom CAS-based RingBuffer
 ### Features
 
 - lock-free publishing
-- power-of-two indexing
-- bitmask access
+- bitmask indexing
 - busy-wait consumer
-- reduced coordination overhead
+- reduced synchronization overhead
+- cache-friendly access patterns
 
 ### Result
 
-- higher throughput
+- significantly improved throughput
 - lower latency jitter
-- reduced scheduler interference
+- reduced scheduling interference
 
 ---
 
@@ -124,11 +124,11 @@ ArrayBlockingQueue → Custom CAS-based RingBuffer
 Implemented:
 - cache-line padding
 - separated read/write indexes
-- contention reduction
+- false-sharing prevention
 
 ### Result
 
-Reduced cache contention and improved latency consistency.
+Improved latency consistency under sustained load.
 
 ---
 
@@ -158,21 +158,20 @@ Beyond that:
 Implemented:
 - end-to-end latency tracking
 - processing latency tracking
-- percentile calculations
+- percentile measurements
 
 Measured:
 - P50
 - P95
 - P99
 
-This enabled actual bottleneck analysis instead of assumption-driven optimization.
+This enabled bottleneck analysis based on actual measurements rather than assumptions.
 
 ---
 
 # 🧪 Benchmark Methodology
 
 Benchmarks were executed using:
-
 - continuous synthetic load
 - sustained 60-second runs
 - percentile latency tracking
@@ -183,17 +182,6 @@ Measured:
 - end-to-end latency
 - processing latency
 - percentile distribution
-
----
-
-# 💻 Hardware Environment
-
-| Component | Value |
-|---|---|
-| CPU | Intel i5-7300HQ (4 cores) |
-| RAM | 8 GB |
-| Java | 17 LTS |
-| OS | Windows 10 |
 
 ---
 
@@ -210,20 +198,20 @@ Most latency originated from coordination and queueing rather than matching itse
 
 ---
 
-## Lock-Free Structures Matter
+## Lock-Free Coordination Reduced Variability
 
-Replacing blocking queues significantly improved:
+Replacing blocking queues improved:
 - throughput
-- latency stability
+- latency consistency
 - contention behavior
 
 ---
 
-## More Threads ≠ Better Performance
+## More Threads ≠ Better Throughput
 
 Performance peaked near hardware core limits.
 
-Additional threads introduced:
+Additional producer threads introduced:
 - contention
 - scheduling overhead
 - reduced efficiency
@@ -232,7 +220,7 @@ Additional threads introduced:
 
 # 📌 Current Limitations
 
-This project intentionally focuses on matching-path performance and concurrency behavior.
+This project intentionally focuses on matching-path concurrency and latency behavior.
 
 It does not yet implement:
 - persistence/recovery
@@ -281,10 +269,6 @@ java Main
 
 # 🧠 Concepts Demonstrated
 
-<p align="center">
-  <img src="https://skillicons.dev/icons?i=java" />
-</p>
-
 - Lock-free concurrency
 - CAS synchronization
 - MPSC queue design
@@ -299,12 +283,6 @@ java Main
 
 # 📚 Project Goal
 
-This project was built to understand how architectural decisions, CPU behavior, synchronization strategies, and memory access patterns affect real-world system latency and throughput.
+This project was built to explore how synchronization strategies, CPU cache behavior, coordination overhead, and memory access patterns affect real-world system latency and throughput.
 
 It focuses on measurable engineering tradeoffs rather than framework-heavy abstractions.
-
----
-
-<p align="center">
-  Built for performance engineering exploration and systems-level backend learning.
-</p>
