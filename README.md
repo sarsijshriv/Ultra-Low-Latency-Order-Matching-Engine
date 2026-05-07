@@ -1,449 +1,262 @@
+# 🚀 Ultra-Low-Latency Order Matching Engine
 
-# 🚀 Ultra-Low-Latency Order Matching Engine (Java)
+High-performance lock-free order matching engine built in Java to explore low-latency systems design, mechanical sympathy, and concurrent architecture patterns used in trading infrastructure.
 
-A high-performance, lock-free, multi-threaded order matching engine built from scratch in Java, designed to simulate the core infrastructure used in real-world trading systems and high-frequency event pipelines.
-
----
-
-# 🧠 Why This Project Exists
-
-Most backend systems rely on blocking abstractions and frameworks.
-
-This project intentionally avoids those to:
-
-- Understand how hardware affects software
-- Explore lock-free data structures
-- Measure real system latency
-- Optimize through evidence, not assumptions
-- Build systems-level engineering intuition
-
-This project is not just an implementation — it is a **performance engineering journey**.
+Designed around:
+- lock-free communication
+- cache-aware data structures
+- predictable latency
+- benchmark-driven optimization
 
 ---
 
-# 🏗️ System Architecture
+# 📊 Performance
 
-![System Architecture](architecture.png)
+| Metric | Result |
+|---|---|
+| Throughput | 971K+ trades/sec |
+| Runtime | 60s sustained load |
+| P50 Latency | 5.6 µs |
+| P95 Latency | 7.3 µs |
+| P99 Latency | 23 µs |
 
-High-Level Flow:
+### Test Environment
 
-Multiple Producers  
-↓  
-Lock-Free Ring Buffer (MPSC)  
-↓  
-Single Matching Engine  
-↓  
-Order Book (Priority Queues)
+| Component | Value |
+|---|---|
+| CPU | Intel i5-7300HQ (4 cores) |
+| RAM | 8 GB |
+| Java | 17 LTS |
+| OS | Windows 10 |
 
-Design Principles:
+---
 
-- Multiple writers
-- Single consumer
-- No locks in matching path
+# 🏗️ Architecture
+
+![Architecture](architecture.png)
+
+### Pipeline
+
+```text
+Multiple Producers
+        ↓
+Lock-Free Ring Buffer (MPSC)
+        ↓
+Single Matching Engine
+        ↓
+Order Book
+```
+
+### Design Goals
+
+- Multiple concurrent producers
+- Single-threaded matching path
+- No locks during matching
 - Minimal contention
-- Cache-aware memory layout
+- Cache-friendly memory layout
+- Predictable latency under load
 
 ---
 
-# 📦 Core Components
+# ⚙️ Core Components
 
-## Order
-
-Represents a market order.
-
-Fields:
-
-- orderId
-- price
-- quantity
-- timestamp
-- orderType
-- createdTime
-
-Responsibilities:
-
-- Support partial fills
-- Track remaining quantity
-- Maintain creation timestamp
-- Enable latency measurement
+| Component | Responsibility |
+|---|---|
+| `Producer` | Generates synthetic market traffic |
+| `RingBuffer` | Lock-free MPSC queue using CAS |
+| `MatchingEngine` | Single-threaded matching consumer |
+| `OrderBook` | Maintains buy/sell priority queues |
+| `Order` | Tracks order state and latency metadata |
 
 ---
 
-## OrderBook
+# 🔧 Key Optimizations
 
-Maintains:
+## Lock-Free Ring Buffer
 
-- Buy Orders → Max Heap
-- Sell Orders → Min Heap
+Replaced `ArrayBlockingQueue` with custom CAS-based MPSC ring buffer.
 
-Matching Rule:
+### Features
+- lock-free publishing
+- power-of-two indexing
+- bitmask access
+- busy-wait consumer
+- reduced coordination overhead
 
-BUY.price ≥ SELL.price
-
-Characteristics:
-
-- FIFO within same price
-- Partial matching supported
-- Continuous matching loop
-
-Design Choice:
-
-PriorityQueue used for:
-
-- O(log N) insert
-- O(log N) removal
-- Efficient price ordering
+### Result
+- higher throughput
+- lower latency jitter
+- reduced scheduler interference
 
 ---
 
-## RingBuffer (Custom Lock-Free Queue)
-
-Multi-Producer Single-Consumer (MPSC) queue implemented using:
-
-Compare-And-Swap (CAS)
-
-Key Features:
-
-- Lock-free publishing
-- Bitmask indexing (no modulo)
-- Busy-wait consumer
-- False-sharing prevention
-- Cache-friendly layout
-
-Replaced:
-
-ArrayBlockingQueue
-
-Reason:
-
-Blocking queues introduce kernel scheduling overhead.
-
----
-
-## MatchingEngine
-
-Single-threaded consumer responsible for:
-
-- Reading orders
-- Matching orders
-- Recording latency
-- Tracking throughput
-
-Why Single Thread?
-
-Avoids locking inside OrderBook.
-
----
-
-## Producer
-
-Responsibilities:
-
-- Generate synthetic load
-- Publish orders continuously
-- Simulate real traffic
-
-Multiple producers run concurrently.
-
----
-
-# ⚙️ Optimization Journey
-
-## Stage 1 — Baseline Matching Engine
-
-Initial implementation:
-
-- OrderBook
-- PriorityQueue Matching
-- Single-threaded execution
-
-Focus:
-
-Correctness first
-
----
-
-## Stage 2 — Multi-Threaded Producers
-
-Introduced:
-
-- Multiple producer threads
-- BlockingQueue communication
-
-Problem:
-
-Blocking queues limited throughput.
-
----
-
-## Stage 3 — Lock-Free RingBuffer
-
-Replaced:
-
-BlockingQueue → Custom RingBuffer
+## Cache-Aware Design
 
 Implemented:
+- cache-line padding
+- separated read/write indexes
+- contention reduction
 
-- CAS-based publish
-- Busy-wait consume
-- Power-of-two indexing
-
-Result:
-
-Major throughput improvement.
+### Result
+Lower latency variance under sustained load.
 
 ---
 
-## Stage 4 — Cache Optimization
+## Single Consumer Matching
 
-Implemented:
+Matching engine intentionally runs on a single thread.
 
-- False-sharing padding
-- Separated read/write indexes
+### Why?
 
-Result:
+Avoids:
+- locks inside order book
+- synchronization overhead
+- coordination complexity
 
-Reduced cache contention and latency jitter.
-
----
-
-## Stage 5 — Producer Scaling Analysis
-
-Tested:
-
-1 → 6 producer threads
-
-Observation:
-
-Peak performance at 3 producers.
-
-Reason:
-
-3 producers + 1 consumer = 4 CPU cores.
-
-More producers caused:
-
-- Context switching
-- CAS contention
-- Performance regression
+Tradeoff:
+- simpler deterministic matching path
+- bounded scaling model
 
 ---
 
-## Stage 6 — Latency Instrumentation
+# 📈 Scaling Analysis
 
-Implemented:
+| Producers | Throughput |
+|---|---|
+| 1 | ~600K/sec |
+| 2 | ~1.2M/sec |
+| 3 | ~1.3M/sec |
+| 4 | Plateau |
+| 6 | Regression |
 
-- End-to-End latency tracking
-- Processing latency tracking
-- Percentile calculation
+### Observation
+
+Optimal performance occurred at 3 producers on a 4-core CPU.
+
+Beyond that:
+- CAS contention increased
+- context switching increased
+- throughput regressed
+
+This highlighted hardware-aware scaling limits.
+
+---
+
+# 🧪 Benchmark Methodology
+
+Benchmarks were executed using:
+- continuous synthetic load
+- sustained 60-second runs
+- percentile latency tracking
+- producer vs consumer validation
 
 Measured:
-
-- P50
-- P95
-- P99
-
-This enabled real bottleneck discovery.
-
----
-
-# 📊 Benchmark Methodology
-
-Benchmarks were performed using:
-
-- Continuous synthetic load
-- Fixed-duration runs
-- Latency percentile tracking
-- Produced vs Consumed validation
-
-Duration:
-
-60 seconds sustained load
-
-This exposes:
-
-- CPU throttling
-- Scheduling contention
-- Long-term stability
-
----
-
-# 🧪 Hardware Environment
-
-CPU: Intel i5-7300HQ (4 cores)  
-RAM: 8 GB  
-Java: 17 LTS  
-OS: Windows 10
-
----
-
-# 📈 Final Performance Results
-
-Configuration:
-
-Producers: 3  
-RingBuffer Size: 8192  
-Runtime: 60 seconds
-
-Results:
-
-Total Trades:
-
-58,327,987
-
-Throughput:
-
-971,801 trades/sec
-
-Latency:
-
-P50: 5602 ns  
-P95: 7340 ns  
-P99: 23050 ns
-
-Processing Latency:
-
-P50: 300 ns  
-P95: 1600 ns  
-P99: 2300 ns
-
----
-
-# 📉 Producer Scaling Results
-
-Producers | Throughput
------------|-------------
-1 | ~600k/sec
-2 | ~1.2M/sec
-3 | ~1.3M/sec (Optimal)
-4 | Plateau
-6 | Regression
-
-Key Insight:
-
-Thread count must match CPU cores.
+- throughput
+- end-to-end latency
+- processing latency
+- percentile distribution (P50/P95/P99)
 
 ---
 
 # 🔍 Engineering Insights
 
-## Insight 1 — Matching Is Not the Bottleneck
+## Matching Was Not the Bottleneck
 
-Processing ≈ 300 ns  
-Total latency ≈ 5600 ns
+| Metric | Approx |
+|---|---|
+| Processing Latency | ~300 ns |
+| End-to-End Latency | ~5600 ns |
 
-Most time spent waiting, not matching.
-
----
-
-## Insight 2 — Lock-Free Design Matters
-
-Replacing BlockingQueue:
-
-- Major throughput increase
-- Lower latency jitter
+Most latency originated from coordination and queueing rather than matching itself.
 
 ---
 
-## Insight 3 — CPU Cache Behavior Matters
+## Lock-Free Structures Matter
 
-False-sharing caused:
-
-Latency instability.
-
-Padding fixed:
-
-Cache contention.
+Replacing blocking queues significantly improved:
+- throughput
+- latency stability
+- contention behavior
 
 ---
 
-## Insight 4 — Scaling Has Limits
+## More Threads ≠ Better Performance
 
-More threads does not always mean faster.
+Performance peaked near hardware core limits.
 
-Hardware limits exist.
+Additional threads introduced:
+- contention
+- scheduling overhead
+- reduced efficiency
+
+---
+
+# 📌 Current Limitations
+
+This project intentionally focuses on matching-path performance and concurrency behavior.
+
+It does not yet model:
+- order cancellation
+- persistence/recovery
+- replay logs
+- market orders
+- risk management
+- distributed matching
+- deterministic replication
 
 ---
 
-# 📌 Future Improvements
+# 🛣️ Future Improvements
 
-## Multi-Symbol Matching
-
-Partition system:
-
-Symbol → Dedicated OrderBook
-
-Benefit:
-
-Parallel matching pipelines.
-
----
+## Multi-Symbol Parallelism
+Partition matching by symbol for parallel execution.
 
 ## Object Pooling
-
-Reuse Order objects.
-
-Benefit:
-
-Reduced allocation pressure.
-
----
+Reduce allocation pressure and GC overhead.
 
 ## Async Trade Logging
+Persist trades asynchronously using Kafka/WAL pipelines.
 
-Persist trades asynchronously.
-
-Possible targets:
-
-- Kafka
-- Elasticsearch
-- File WAL
-
----
-
-## Custom Heap Implementation
-
-Replace PriorityQueue with:
-
-Price-level buckets.
-
----
+## Custom Price-Level Structures
+Replace `PriorityQueue` with optimized price buckets.
 
 ## Thread Affinity
-
-Pin threads to CPU cores.
-
-Benefit:
-
-Better cache locality.
+Pin threads to CPU cores for improved cache locality.
 
 ---
 
-# ▶️ How to Run
+# ▶️ Running
 
-Compile:
+## Compile
 
+```bash
 javac *.java
+```
 
-Run:
+## Run
 
+```bash
 java Main
+```
 
 ---
 
-# 🧠 Skills Demonstrated
+# 🧠 Concepts Demonstrated
 
 - Lock-free concurrency
-- Multi-threaded system design
-- Latency measurement
-- Performance optimization
-- CPU-aware engineering
-- Benchmark-driven development
+- CAS synchronization
+- MPSC queue design
+- Cache-aware engineering
+- JVM performance reasoning
+- Latency instrumentation
+- Throughput benchmarking
+- Concurrent systems design
+- Mechanical sympathy
 
 ---
 
-# ⭐ Final Summary
+# 📚 Project Goal
 
-This project demonstrates how a simple system evolves into a high-performance concurrent engine through careful measurement, architectural changes, and hardware-aware optimizations.
+This project was built to understand how architectural decisions, CPU behavior, synchronization strategies, and memory access patterns affect real-world system latency and throughput.
 
-It reflects real engineering trade-offs and performance reasoning.
+It focuses on measurable engineering tradeoffs rather than framework-heavy abstractions.
